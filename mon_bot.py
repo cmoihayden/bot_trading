@@ -4,9 +4,57 @@ import pandas as pd
 import datetime
 import ta
 import requests
+import time
 
-st.set_page_config(page_title="Bot d'analyse technique", layout="wide")
-st.title("📈 Scanner d'opportunités - Actions & Cryptos")
+# 🔐 Authentification simple par mot de passe
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "spiderman84":
+            st.session_state["authenticated"] = True
+        else:
+            st.session_state["authenticated"] = False
+
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    if not st.session_state["authenticated"]:
+        st.image("https://upload.wikimedia.org/wikipedia/en/0/0c/Spiderman50.jpg", width=200)
+        st.title("🕸️ Bienvenue sur SpideyCrypto")
+        st.markdown("**Analyse des cryptos et actions par ton alter ego arachnéen.**")
+        st.text_input("🔐 Entrez le mot de passe :", type="password", on_change=password_entered, key="password")
+        st.stop()
+
+check_password()
+
+# 🕸️ Animation de chargement
+with st.spinner("🕷️ SpideyCrypto analyse le marché... Accroche-toi à ta toile 💥"):
+    time.sleep(1.5)
+
+# Configuration mobile-friendly
+st.set_page_config(page_title="SpideyCrypto - Analyse technique", layout="centered")
+st.title("📈 SpideyCrypto - Scanner d'opportunités")
+
+# 🌗 Bouton de mode sombre
+with st.sidebar:
+    dark_mode = st.toggle("🌙 Mode sombre")
+
+if dark_mode:
+    st.markdown("""
+        <style>
+            body, .stApp { background-color: #111 !important; color: #eee !important; }
+            .css-18e3th9, .css-1d391kg { background-color: #111 !important; }
+        </style>
+    """, unsafe_allow_html=True)
+
+# 🔗 Bouton de partage
+st.markdown("""
+    <div style='text-align: center;'>
+        <a href='https://spideycrypto.streamlit.app' target='_blank'>
+            📲 <strong>Partager SpideyCrypto</strong>
+        </a>
+    </div>
+    <br>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 Ce scanner affiche **tous les actifs analysés**, même sans signal fort.
@@ -16,26 +64,19 @@ Ce scanner affiche **tous les actifs analysés**, même sans signal fort.
 - 🟨 **Surbrillance jaune** : actif avec **fort potentiel** (Score ≥ 70)
 """)
 
-NEWS_API_KEY = "pub_cb86075950c74296a64aea6fb71a84e4"
+NEWS_API_KEY = st.secrets["api"]["newsdata"]
 
 choix_type = st.selectbox("🔽 Type d’actifs à scanner :", ["Tous", "Actions uniquement", "Cryptos uniquement"])
 
 if st.button("🔍 Scanner maintenant"):
+    stocks = ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'AMD', 'INTC', 'CRM', 'TSLA', 'META', 'AMZN', 'ORCL', 'IBM', 'SHOP',
+              'PFE', 'MRNA', 'JNJ', 'BMY', 'REGN', 'GILD', 'LLY', 'AZN', 'VRTX', 'SNY', 'BIIB',
+              'XOM', 'CVX', 'COP', 'SLB', 'BP', 'TOT', 'ENB', 'EQNR',
+              'F', 'GM', 'TM', 'HMC', 'RIVN', 'LCID', 'STLA', 'VWAGY',
+              'NFLX', 'ROKU', 'SPOT', 'BIDU', 'UBER', 'LYFT',
+              'LVMUY', 'CPRI', 'TPR', 'RL', 'NKE', 'ADIDAS', 'PVH']
 
-    stocks = [
-        'AAPL', 'MSFT', 'GOOGL', 'NVDA', 'AMD', 'INTC', 'CRM', 'TSLA', 'META', 'AMZN', 'ORCL', 'IBM', 'SHOP',
-        'PFE', 'MRNA', 'JNJ', 'BMY', 'REGN', 'GILD', 'LLY', 'AZN', 'VRTX', 'SNY', 'BIIB',
-        'XOM', 'CVX', 'COP', 'SLB', 'BP', 'TOT', 'ENB', 'EQNR',
-        'F', 'GM', 'TM', 'HMC', 'RIVN', 'LCID', 'STLA', 'VWAGY',
-        'NFLX', 'ROKU', 'SPOT', 'BIDU', 'TWTR', 'UBER', 'LYFT',
-        'LVMUY', 'CPRI', 'TPR', 'RL', 'NKE', 'ADIDAS', 'PVH'
-    ]
-
-    cryptos = [
-        'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD',
-        'DOT-USD', 'MATIC-USD', 'AVAX-USD', 'ADA-USD',
-        'DOGE-USD', 'BNB-USD'
-    ]
+    cryptos = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOT-USD', 'MATIC-USD', 'AVAX-USD', 'ADA-USD', 'DOGE-USD', 'BNB-USD']
 
     if choix_type == "Actions uniquement":
         assets = stocks
