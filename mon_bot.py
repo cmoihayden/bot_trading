@@ -8,6 +8,7 @@ import numpy as np
 assets_df = pd.read_csv("tickers_all.csv")
 tickers = assets_df['Ticker'].dropna().unique().tolist()
 ticker_names = dict(zip(assets_df['Ticker'], assets_df['Nom complet']))
+assets_df['Type'] = assets_df['Type'].fillna('Unknown')  # Ajout d'une colonne Type (Crypto ou Action)
 
 # Fonction sécurisée pour float
 def safe_float(val):
@@ -18,8 +19,12 @@ def safe_float(val):
 
 # Fonction de style
 def style_dataframe(df):
+    # S'assurer que la colonne 'Score' contient des valeurs numériques
+    df['Score'] = pd.to_numeric(df['Score'], errors='coerce')  # Convertir en numérique, 'coerce' convertit les erreurs en NaN
+    
     def highlight(row):
         styles = [''] * len(row)
+        # Si le score est >= 80, on le met en jaune
         if row.get('Score', 0) >= 80:
             for i in range(len(row)):
                 styles[i] = 'color: gold; font-weight: bold'
@@ -46,12 +51,19 @@ st.set_page_config(page_title="SpideyCrypto", layout="wide")
 st.title("🕷️ SpideyCrypto - Analyse des Actifs")
 st.caption(f"Dernière analyse : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
+# Filtre par type (Crypto ou Action)
+asset_type = st.selectbox("Filtrer par type d'actif", ["Tout", "Crypto", "Action"])
+
 if st.button("🚀 Lancer l’analyse complète"):
     with st.spinner("Analyse en cours... Patientez pendant que l'on analyse les actifs..."):
         results = []
         failed = []
 
-        for symbol in tickers:
+        for symbol, type_ in zip(tickers, assets_df['Type']):
+            # Appliquer le filtre sélectionné
+            if asset_type != "Tout" and asset_type != type_:
+                continue  # Ignorer cet actif si il ne correspond au filtre
+
             try:
                 # Téléchargement des données avec des bougies de 4 heures et une période de 30 jours
                 data = yf.download(symbol, period="30d", interval="4h", progress=False, threads=True, auto_adjust=False)
@@ -96,18 +108,28 @@ if st.button("🚀 Lancer l’analyse complète"):
                 pct_change_24h = pct_change_24h.item() if isinstance(pct_change_24h, pd.Series) else pct_change_24h
                 pct_change_7d = pct_change_7d.item() if isinstance(pct_change_7d, pd.Series) else pct_change_7d
 
+                # Estimation du pourcentage potentiel pour les 6 prochaines heures
+                potential_change_6h = pct_change_6h * 2  # Estimation simple : doublement du changement passé
+
                 # Calcul du score
                 score = 0
-                if pct_change_6h > 2:
+                if pct_change_6h > 5:  # Seuil ajusté à 5% pour filtrer les faibles variations
                     score += 20
-                if pct_change_24h > 5:
+                if pct_change_24h > 8:  # Seuil ajusté à 8% pour filtrer les faibles variations
                     score += 20
-                if pct_change_7d > 10:
+                if pct_change_7d > 15:  # Seuil ajusté à 15% pour filtrer les faibles variations
                     score += 20
-                if rsi_value < 70:
+                if rsi_value < 70:  # Limite plus haute pour le RSI (moins de surachat)
                     score += 20
-                if volume > 1.5 * volume_avg:
+                if volume > 1.5 * volume_avg:  # Volume minimum de 1.5x le volume moyen
                     score += 20
+
+                # Ajouter des pénalités pour des baisses importantes (par exemple, > -5% sur 24h)
+                if pct_change_24h < -5:
+                    score -= 10  # Ajoute une pénalité si la baisse est trop importante
+
+                # Ajouter l'emoji 🔥 uniquement pour les scores de 100
+                score_display = f"{score} 🔥" if score == 100 else str(score)
 
                 # Enregistrement des résultats
                 results.append({
@@ -117,7 +139,8 @@ if st.button("🚀 Lancer l’analyse complète"):
                     'Changement (24h) (%)': round(pct_change_24h, 2),
                     'Changement (7j) (%)': round(pct_change_7d, 2),
                     'RSI': round(rsi_value, 2),
-                    'Score': score
+                    'Score': score_display,  # Afficher le score avec 🔥 si score == 100
+                    'Estimation Potentiel (6h) (%)': round(potential_change_6h, 2)  # Estimation du pourcentage potentiel
                 })
 
             except Exception as e:
@@ -127,8 +150,7 @@ if st.button("🚀 Lancer l’analyse complète"):
         # Traitement des résultats
         df = pd.DataFrame(results)
         if not df.empty:
-            df = df[df['Score'] > 0]
-            df = df.sort_values(by='Score', ascending=False).head(100)
+            df = df.sort_values(by='Score', ascending=False).head(100)  # Affichage des top 100
             st.dataframe(style_dataframe(df), use_container_width=True, hide_index=True)
         else:
             st.warning("❌ Aucun actif détecté.")
